@@ -1,3 +1,25 @@
+v7.0.2
+- fix encoding
+
+v7.0.1
+- add support for image types provided by imagedecoder addons
+
+v7.0.0
+- update for kodi nexus
+
+v6.4.2
+- revert some changes due to python/json problem with windows paths
+- make recursive slideshow optional
+
+v6.4.1
+- fix crash when video files are present
+
+v6.4.0
+- add basic support for picture addons
+
+v6.3.6
+- add vignette option
+
 v6.3.5
 - added an option to display full image path
 

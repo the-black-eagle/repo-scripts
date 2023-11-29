@@ -42,6 +42,7 @@ EFFECTLIST = ["('conditional', 'effect=zoom start=100 end=400 center=auto time=%
 # get local dateformat to localize the exif date tag
 DATEFORMAT = xbmc.getRegion('dateshort')
 
+
 class BinaryFile(xbmcvfs.File):
     def read(self, numBytes: int = 0) -> bytes:
         if not numBytes:
@@ -94,6 +95,8 @@ class Screensaver(xbmcgui.WindowXMLDialog):
         self.slideshow_time = ADDON.getSettingInt('time') + 2
         # convert float to hex value usable by the skin
         self.slideshow_dim = hex(int('%.0f' % (float(100 - ADDON.getSettingInt('level')) * 2.55)))[2:] + 'ffffff'
+        self.slideshow_overlay = ADDON.getSettingBool('overlay')
+        self.slideshow_recursive = ADDON.getSettingBool('recursive')
         self.slideshow_random = ADDON.getSettingBool('random')
         self.slideshow_resume = ADDON.getSettingBool('resume')
         self.slideshow_scale = ADDON.getSettingBool('scale')
@@ -126,6 +129,9 @@ class Screensaver(xbmcgui.WindowXMLDialog):
         self.textbox = self.getControl(101)
         # set the dim property
         self._set_prop('Dim', self.slideshow_dim)
+        # show vignette overlay during slideshow if enabled
+        if self.slideshow_overlay:
+            self._set_prop('Overlay', 'show')
         # show music info during slideshow if enabled
         if self.slideshow_music:
             self._set_prop('Music', 'show')
@@ -150,13 +156,16 @@ class Screensaver(xbmcgui.WindowXMLDialog):
                 if self.slideshow_type == 2 and not xbmcvfs.exists(img[0]):
                     continue
                 # add image to gui
-                cur_img.setImage(img[0],False)
+                useCache = False
+                if img[0].startswith('http'): # do not redownload images from online sources each time
+                    useCache = True
+                cur_img.setImage(img[0],useCache)
                 # add background image to gui
                 if (not self.slideshow_scale) and self.slideshow_bg:
                     if order[0] == 1:
-                        self.image3.setImage(img[0],False)
+                        self.image3.setImage(img[0],useCache)
                     else:
-                        self.image4.setImage(img[0],False)
+                        self.image4.setImage(img[0],useCache)
                 # give xbmc some time to load the image
                 if not self.startup:
                     xbmc.sleep(1000)
@@ -204,8 +213,8 @@ class Screensaver(xbmcgui.WindowXMLDialog):
                         iptcfile = BinaryFile(img[0])
                         try:
                             iptc = IPTCInfo(iptcfile)
-                            if iptc['headline']:
-                                title = bytes(iptc['headline']).decode('utf-8')
+                            if iptc['object name']:
+                                title = bytes(iptc['object name']).decode('utf-8')
                                 iptc_ti = True
                             if iptc['caption/abstract']:
                                 description = bytes(iptc['caption/abstract']).decode('utf-8')
@@ -228,15 +237,15 @@ class Screensaver(xbmcgui.WindowXMLDialog):
                                 if xmpdata:
                                     titlematch = re.search(r'<dc:title.*?rdf:Alt.*?rdf:li.*?>(.*?)<', xmpdata.group(1), flags=re.DOTALL)
                                     if titlematch and not iptc_ti:
-                                        title = titlematch.group(1)
+                                        title = titlematch.group(1).encode('cp437').decode('utf-8')
                                         iptc_ti = True
                                     descmatch = re.search(r'<dc:description.*?rdf:Alt.*?rdf:li.*?>(.*?)<', xmpdata.group(1), flags=re.DOTALL)
                                     if descmatch and not iptc_de:
-                                        description = descmatch.group(1)
+                                        description = descmatch.group(1).encode('cp437').decode('utf-8')
                                         iptc_de = True
                                     subjmatch = re.search(r'<dc:subject.*?rdf:Bag.*?>(.*?)</rdf:Bag', xmpdata.group(1), flags=re.DOTALL)
                                     if subjmatch and not iptc_ke:
-                                        keywords = ', '.join(subjmatch.group(1).split()).replace('<rdf:li>', '').replace('</rdf:li>', '')
+                                        keywords = ', '.join(subjmatch.group(1).encode('cp437').decode('utf-8').split()).replace('<rdf:li>', '').replace('</rdf:li>', '')
                                         iptc_ke = True
                             except:
                                 pass
@@ -255,22 +264,34 @@ class Screensaver(xbmcgui.WindowXMLDialog):
                     self.textbox.setVisible(False)
                 # get the file or foldername if enabled in settings
                 if self.slideshow_name != 0:
-                    if self.slideshow_name == 1:
+                    if self.slideshow_name == 1: # filename
                         if self.slideshow_type == 2:
-                            NAME, EXT = os.path.splitext(os.path.basename(img[0]))
+                            if self.slideshow_path.startswith('plugin://'):
+                                NAME, EXT = os.path.splitext(os.path.basename(img[1]))
+                            else:
+                                NAME, EXT = os.path.splitext(os.path.basename(img[0]))
                         else:
                             NAME = img[1]
-                    elif self.slideshow_name == 2:
-                        ROOT, NAME = os.path.split(os.path.dirname(img[0]))
-                    elif self.slideshow_name == 3:
+                    elif self.slideshow_name == 2: # directory name
+                        if self.slideshow_path.startswith('plugin://'):
+                            NAME, EXT = os.path.splitext(os.path.basename(img[1])) # only filename is available
+                        else:
+                            ROOT, NAME = os.path.split(os.path.dirname(img[0]))
+                    elif self.slideshow_name == 3: # directory name / filename
                         if self.slideshow_type == 2:
-                            ROOT, FOLDER = os.path.split(os.path.dirname(img[0]))
-                            FILE, EXT = os.path.splitext(os.path.basename(img[0]))
-                            NAME = FOLDER + ' / ' + FILE
+                            if self.slideshow_path.startswith('plugin://'):
+                                NAME, EXT = os.path.splitext(os.path.basename(img[1])) # only filename is available
+                            else:
+                                ROOT, FOLDER = os.path.split(os.path.dirname(img[0]))
+                                FILE, EXT = os.path.splitext(os.path.basename(img[0]))
+                                NAME = FOLDER + ' / ' + FILE
                         else:
                             ROOT, FOLDER = os.path.split(os.path.dirname(img[0]))
                             NAME = FOLDER + ' / ' + img[1]
-                    elif self.slideshow_name == 4:
+                    elif self.slideshow_name == 4: # full path
+                        if self.slideshow_path.startswith('plugin://'):
+                            NAME, EXT = os.path.splitext(os.path.basename(img[1])) # only filename is available
+                        else:
                             NAME = os.path.realpath(img[0])
                     self.namelabel.setLabel(NAME)
                 # set animations
@@ -319,7 +340,7 @@ class Screensaver(xbmcgui.WindowXMLDialog):
         log('slideshow type: %i' % self.slideshow_type)
 	    # check if we have an image folder, else fallback to video fanart
         if self.slideshow_type == 2:
-            hexfile = checksum(self.slideshow_path.encode('utf-8')) # check if path has changed, so we can create a new cache at startup
+            hexfile = checksum(self.slideshow_path.encode('utf-8')) + '_' + str(self.slideshow_recursive) # check if path has changed, so we can create a new cache at startup
             log('image path: %s' % self.slideshow_path)
             log('update: %s' % update)
             if (not xbmcvfs.exists(CACHEFILE % hexfile)) or update: # create a new cache if no cache exits or during the background scan
@@ -351,7 +372,7 @@ class Screensaver(xbmcgui.WindowXMLDialog):
         # randomize
         if self.slideshow_random:
             random.seed()
-            random.shuffle(self.items, random.random)
+            random.shuffle(self.items)
 
     def _get_offset(self):
         try:
@@ -451,6 +472,7 @@ class Screensaver(xbmcgui.WindowXMLDialog):
         self._clear_prop('Fade11')
         self._clear_prop('Fade12')
         self._clear_prop('Dim')
+        self._clear_prop('Overlay')
         self._clear_prop('Music')
         self._clear_prop('Splash')
         self._clear_prop('Background')
@@ -481,6 +503,7 @@ class img_update(threading.Thread):
     def _exit(self):
         # exit when onScreensaverDeactivated gets called
         self.stop = True
+
 
 class MyMonitor(xbmc.Monitor):
     def __init__( self, *args, **kwargs ):

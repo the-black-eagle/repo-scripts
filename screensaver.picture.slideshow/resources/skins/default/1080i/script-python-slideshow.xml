@@ -157,6 +157,15 @@
 					</animation>
 				</control>
 			</control>
+			<control type="image"> <!--overlay-->
+				<posx>0</posx>
+				<posy>250</posy>
+				<width>auto</width>
+				<height>auto</height>
+				<texture>overlayfade.png</texture>
+				<animation effect="fade" end="95" condition="True">Conditional</animation>
+				<visible>String.IsEqual(Window.Property(SlideView.Overlay),show)</visible>
+			</control>
 			<control type="label" id="99"> <!--name-->
 				<posx>1875</posx>
 				<posy>992</posy>

@@ -43,7 +43,7 @@
 					<constraints>
 						<minimum>2</minimum>
 						<step>1</step>
-						<maximum>60</maximum>
+						<maximum>100</maximum>
 					</constraints>
 				</setting>
 				<setting help="" id="level" label="30005" type="integer">
@@ -71,10 +71,20 @@
 						</options>
 					</constraints>
 				</setting>
+				<setting help="" id="overlay" label="30030" type="boolean">
+					<level>0</level>
+					<default>false</default>
+					<control type="toggle"/>
+				</setting>
 			</group>
 		</category>
 		<category id="30025" label="30025">
 			<group id="1">
+				<setting help="" id="recursive" label="361" type="boolean">
+					<level>0</level>
+					<default>true</default>
+					<control type="toggle"/>
+				</setting>
 				<setting help="" id="random" label="30016" type="boolean">
 					<level>0</level>
 					<default>true</default>
